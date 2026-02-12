@@ -6,12 +6,18 @@ from scripts.futu_client import FutuClient
 from scripts.trading import TradingManager
 from scripts.market_data import MarketData
 from futu import TrdSide, OrderType
+from futu import OpenQuoteContext, OpenSecTradeContext, TrdEnv, RET_OK
 
 
 def example_buy_stock():
     """Example: Buy a stock"""
     with FutuClient() as client:
-        trading = TradingManager(client, market="HK")
+        trading = TradingManager(client, market="HK", trd_env=TrdEnv.SIMULATE)
+
+        # Get account info first
+        account = trading.get_account_info(account_type=TrdEnv.SIMULATE)
+        acc_id = account.get('acc_id', 'N/A')
+        print(f"Using account: {acc_id} (SIMULATE)")
 
         # Place a limit buy order for Tencent
         result = trading.place_order(
@@ -27,7 +33,12 @@ def example_buy_stock():
 def example_sell_stock():
     """Example: Sell a stock"""
     with FutuClient() as client:
-        trading = TradingManager(client, market="HK")
+        trading = TradingManager(client, market="HK", trd_env=TrdEnv.SIMULATE)
+
+        # Get account info first
+        account = trading.get_account_info(account_type=TrdEnv.SIMULATE)
+        acc_id = account.get('acc_id', 'N/A')
+        print(f"Using account: {acc_id} (SIMULATE)")
 
         # Place a market sell order
         result = trading.place_order(
@@ -43,25 +54,37 @@ def example_sell_stock():
 def example_check_positions():
     """Example: Check current positions"""
     with FutuClient() as client:
-        trading = TradingManager(client, market="HK")
+        trading = TradingManager(client, market="HK", trd_env=TrdEnv.SIMULATE)
+
+        # Get account info first
+        account = trading.get_account_info(account_type=TrdEnv.SIMULATE)
+        acc_id = account.get('acc_id', 'N/A')
+        print(f"Using account: {acc_id} (SIMULATE)")
 
         # Get all positions
-        positions = trading.get_positions()
-        print(f"Current positions: {len(positions)}")
-
-        for pos in positions:
-            print(f"  {pos['code']}: {pos['qty']} shares @ avg ${pos.get('cost_price', 'N/A')}")
+        ok, positions = trading.get_trade_ctx().position_list_query(trd_env=TrdEnv.SIMULATE, acc_id=acc_id)
+        if ok == RET_OK:
+            print(f"Current positions: {len(positions)}")
+            for _, pos in positions.iterrows():
+                print(f"  {pos['code']}: {pos['qty']} shares @ avg ${pos.get('cost_price', 'N/A')}")
+        else:
+            print(f"Failed to get positions: {positions}")
 
         # Get specific position
-        tencent_pos = trading.get_position("HK.00700")
-        if tencent_pos:
-            print(f"Tencent position: {tencent_pos['qty']} shares")
+        ok, tencent_pos = trading.get_trade_ctx().position_list_query(code="HK.00700", trd_env=TrdEnv.SIMULATE, acc_id=acc_id)
+        if ok == RET_OK and not tencent_pos.empty:
+            print(f"Tencent position: {tencent_pos.iloc[0]['qty']} shares")
 
 
 def example_check_orders():
     """Example: Check order status"""
     with FutuClient() as client:
-        trading = TradingManager(client, market="HK")
+        trading = TradingManager(client, market="HK", trd_env=TrdEnv.SIMULATE)
+
+        # Get account info first
+        account = trading.get_account_info(account_type=TrdEnv.SIMULATE)
+        acc_id = account.get('acc_id', 'N/A')
+        print(f"Using account: {acc_id} (SIMULATE)")
 
         # Get all today's orders
         orders = trading.get_today_orders()
@@ -79,7 +102,12 @@ def example_check_orders():
 def example_cancel_orders():
     """Example: Cancel orders"""
     with FutuClient() as client:
-        trading = TradingManager(client, market="HK")
+        trading = TradingManager(client, market="HK", trd_env=TrdEnv.SIMULATE)
+
+        # Get account info first
+        account = trading.get_account_info(account_type=TrdEnv.SIMULATE)
+        acc_id = account.get('acc_id', 'N/A')
+        print(f"Using account: {acc_id} (SIMULATE)")
 
         # Cancel specific order
         # result = trading.cancel_order(order_id="123456789")
@@ -123,22 +151,40 @@ def example_get_klines():
             print(f"Latest: Open=${latest['open']}, High=${latest['high']}, Low=${latest['low']}, Close=${latest['close']}")
 
 
-def example_account_info():
+def general_example():
     """Example: Get account information"""
     with FutuClient() as client:
         trading = TradingManager(client, market="HK")
 
         # Get account info
         account = trading.get_account_info()
-        print(f"Cash: ${account.get('cash', 'N/A')}")
-        print(f"Total Assets: ${account.get('total_assets', 'N/A')}")
-        print(f"Market Value: ${account.get('market_val', 'N/A')}")
+        acc_id = account.get('acc_id', 'N/A')
+        print(f"Account ID: {acc_id}")
+        ok, assets = trading.get_trade_ctx().accinfo_query(trd_env=TrdEnv.SIMULATE, acc_id=acc_id)
+        if ok == RET_OK:
+            print(f"模拟账户可用资金:{assets.iloc[0]['cash']}")
+            print(f"模拟账户最大购买力:{assets.iloc[0]['power']}")
+
+            ok, positions = trading.get_trade_ctx().position_list_query(trd_env=TrdEnv.SIMULATE, acc_id=acc_id)
+            if ok == RET_OK:
+                if positions.empty:
+                    print(f"账户 {acc_id} 目前没有持仓。")
+                else:
+                    print(f"--- 账户 {acc_id} 持仓详情 ---")
+                    cols = ['code', 'stock_name', 'qty', 'can_sell_qty', 'cost_price', 'nominal_price', 'pl_val', 'pl_ratio']
+                    display_data = positions[cols]
+                    print(display_data)
 
 
 def example_max_tradable():
     """Example: Get maximum tradable quantity"""
     with FutuClient() as client:
-        trading = TradingManager(client, market="HK")
+        trading = TradingManager(client, market="HK", trd_env=TrdEnv.SIMULATE)
+
+        # Get account info first
+        account = trading.get_account_info(account_type=TrdEnv.SIMULATE)
+        acc_id = account.get('acc_id', 'N/A')
+        print(f"Using account: {acc_id} (SIMULATE)")
 
         max_qty = trading.get_max_trd_qtys(code="HK.00700", price=380.0)
         print(f"Max buy quantity: {max_qty.get('max_cash_buy', 'N/A')}")
@@ -153,7 +199,7 @@ if __name__ == "__main__":
     # example_get_quotes()
     # example_get_klines()
     # example_check_positions()
-    # example_account_info()
+    general_example()
     # example_check_orders()
     # example_buy_stock()
     # example_sell_stock()

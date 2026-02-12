@@ -38,6 +38,7 @@ futu-openapi/
 ## Core Capabilities
 
 ### 1. Connect to Futu API
+ls
 
 Establish connection to FutuOpenD:
 

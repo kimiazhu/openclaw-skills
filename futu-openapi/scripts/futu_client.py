@@ -17,7 +17,7 @@ class FutuClient:
     Manages both quote and trade contexts.
     """
 
-    def __init__(self, host=None, port=None, trading_env=None):
+    def __init__(self, host=None, port=None, trading_env=TrdEnv.SIMULATE):
         """
         Initialize Futu client.
 
@@ -28,7 +28,8 @@ class FutuClient:
         """
         self.host = host or FUTU_HOST
         self.port = port or FUTU_PORT
-        self.trading_env = trading_env or TRADING_ENV
+        # self.trading_env = TRADING_ENV
+        self.trading_env = TrdEnv.SIMULATE
 
         self._quote_ctx = None
         self._trade_ctx = None
@@ -58,13 +59,15 @@ class FutuClient:
             OpenSecTradeContext instance
         """
         if self._trade_ctx is None:
-            trd_env = TrdEnv.SIMULATE if self.trading_env == "SIMULATE" else TrdEnv.REAL
+            # trd_env = TrdEnv.SIMULATE if self.trading_env == "SIMULATE" else TrdEnv.REAL
+            trd_env = TrdEnv.SIMULATE
 
             self._trade_ctx = OpenSecTradeContext(
                 host=self.host,
                 port=self.port,
                 filter_trdmarket=market,
-                trd_env=trd_env
+                #trd_env=trd_env
+                #trd_env=TrdEnv.SIMULATE
             )
 
             # Unlock trading if password is set

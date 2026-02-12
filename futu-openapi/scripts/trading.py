@@ -3,7 +3,7 @@ Trading operations for Futu OpenAPI.
 Provides methods for placing orders, checking positions, and managing trades.
 """
 
-from futu import TrdSide, OrderType, TrdEnv
+from futu import TrdSide, OrderType, TrdEnv, RET_OK
 from scripts.futu_client import FutuClient
 from config.settings import TRADING_ACCOUNT_ID
 
@@ -13,7 +13,7 @@ class TradingManager:
     Manager class for trading operations.
     """
 
-    def __init__(self, client: FutuClient, market="HK", acc_id=None):
+    def __init__(self, client: FutuClient, market="HK", acc_id=None, trd_env=TrdEnv.SIMULATE):
         """
         Initialize trading manager.
 
@@ -21,12 +21,17 @@ class TradingManager:
             client: FutuClient instance
             market: Market type ("HK", "US", "SH", "SZ")
             acc_id: Trading account ID (defaults to TRADING_ACCOUNT_ID from settings)
+            trd_env: Trading environment (TrdEnv.SIMULATE or TrdEnv.REAL), defaults to SIMULATE
         """
         self.client = client
         self.market = market
         self.acc_id = acc_id or TRADING_ACCOUNT_ID
+        self.trd_env = trd_env
         self._trade_ctx = None
 
+    def get_trade_ctx(self):
+        return self._get_trade_ctx()
+    
     def _get_trade_ctx(self):
         """Get trade context, initializing if needed."""
         if self._trade_ctx is None:
@@ -54,7 +59,8 @@ class TradingManager:
             "qty": quantity,
             "code": code,
             "trd_side": side,
-            "order_type": order_type
+            "order_type": order_type,
+            "trd_env": self.trd_env
         }
         if self.acc_id:
             kwargs["acc_id"] = self.acc_id
@@ -82,7 +88,7 @@ class TradingManager:
         """
         ctx = self._get_trade_ctx()
 
-        kwargs = {"code": code}
+        kwargs = {"code": code, "trd_env": self.trd_env}
         if self.acc_id:
             kwargs["acc_id"] = self.acc_id
 
@@ -118,7 +124,7 @@ class TradingManager:
         """
         ctx = self._get_trade_ctx()
 
-        kwargs = {"status_filter_list": status}
+        kwargs = {"status_filter_list": status, "trd_env": self.trd_env}
         if self.acc_id:
             kwargs["acc_id"] = self.acc_id
 
@@ -163,7 +169,8 @@ class TradingManager:
 
         kwargs = {
             "modify_order_op": 0,  # Cancel operation
-            "order_id": order_id
+            "order_id": order_id,
+            "trd_env": self.trd_env
         }
         if self.acc_id:
             kwargs["acc_id"] = self.acc_id
@@ -202,7 +209,7 @@ class TradingManager:
 
         return results
 
-    def get_account_info(self):
+    def get_account_info(self, account_type = TrdEnv.SIMULATE):
         """
         Get account information including cash and assets.
 
@@ -210,6 +217,19 @@ class TradingManager:
             dict: Account information
         """
         ctx = self._get_trade_ctx()
+        ok, acc_list = ctx.get_acc_list()
+
+        if ok == RET_OK:
+            if account_type == TrdEnv.SIMULATE:
+                simulate_accounts = acc_list[acc_list['trd_env'] == 'SIMULATE']
+                print(f"Your simulate account length: {len(simulate_accounts)} \nAccount list:\n {simulate_accounts}")
+                return simulate_accounts.iloc[0] if not simulate_accounts.empty else None
+            else:
+                real_accounts = acc_list[acc_list['trd_env'] == 'REAL']
+                print(f"Your real account lists: {real_accounts}")
+                return real_accounts.iloc[0] if not real_accounts.empty else None
+        else:
+            raise Exception(f"Failed to get account list: {acc_list}")
 
         kwargs = {}
         if self.acc_id:
@@ -238,7 +258,7 @@ class TradingManager:
         """
         ctx = self._get_trade_ctx()
 
-        kwargs = {"code": code, "price": price}
+        kwargs = {"code": code, "price": price, "trd_env": self.trd_env}
         if self.acc_id:
             kwargs["acc_id"] = self.acc_id
 
